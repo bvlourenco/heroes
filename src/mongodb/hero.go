@@ -9,14 +9,14 @@ import (
 	"sinfo.org/heroes/models"
 )
 
-var heroCollection *mongo.Collection
+var HeroCollection *mongo.Collection
 
 func GetHeroes() ([]models.Hero, error) {
 	var heroes []models.Hero
 
 	//filter that matches all documents
 	filter := bson.M{}
-	cursor, err := heroCollection.Find(ctx, filter)
+	cursor, err := HeroCollection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -35,24 +35,24 @@ func GetHeroes() ([]models.Hero, error) {
 }
 
 func AddHero(hero *models.Hero) (string, error) {
-	result, err := heroCollection.InsertOne(ctx, hero)
+	result, err := HeroCollection.InsertOne(ctx, hero)
 	if err != nil {
 		return "", err
 	}
-	ACK := "[DEBUG] Inserted a hero with ID:" + fmt.Sprintf("%v", result.InsertedID.(primitive.ObjectID).Hex())
-	fmt.Println(ACK)
+	ACK := "Inserted a hero with ID:" + fmt.Sprintf("%v", result.InsertedID.(primitive.ObjectID).Hex())
+	fmt.Println("[DEBUG] " + ACK)
 	return ACK, nil
 }
 
 func DeleteHero(heroId primitive.ObjectID) (string, error) {
 	filter := bson.M{"_id": heroId}
 
-	result, err := heroCollection.DeleteOne(ctx, filter)
+	result, err := HeroCollection.DeleteOne(ctx, filter)
 	if err != nil {
 		return "", err
 	}
-	ACK := "[DEBUG] Deleted " + fmt.Sprintf("%v", result.DeletedCount) + " heroes."
-	fmt.Println(ACK)
+	ACK := "Deleted " + fmt.Sprintf("%v", result.DeletedCount) + " heroes."
+	fmt.Println("[DEBUG] " + ACK)
 	return ACK, nil
 }
 
@@ -60,7 +60,7 @@ func GetHero(heroId primitive.ObjectID) (*models.Hero, error) {
 	var hero *models.Hero
 	filter := bson.M{"_id": heroId}
 
-	err := heroCollection.FindOne(ctx, filter).Decode(&hero)
+	err := HeroCollection.FindOne(ctx, filter).Decode(&hero)
 	if err != nil {
 		return nil, err
 	}
@@ -70,11 +70,11 @@ func GetHero(heroId primitive.ObjectID) (*models.Hero, error) {
 func UpdateHero(hero *models.Hero) (string, error) {
 	filter := bson.M{"_id": hero.ID}
 	update := bson.M{"name": hero.Name}
-	result, err := heroCollection.UpdateOne(ctx, filter, bson.M{"$set": update})
+	result, err := HeroCollection.UpdateOne(ctx, filter, bson.M{"$set": update})
 	if err != nil {
 		return "", err
 	}
-	ACK := "[DEBUG] Matched " + fmt.Sprintf("%v", result.MatchedCount) + " heroes and updated " + fmt.Sprintf("%v", result.ModifiedCount) + " heroes."
-	fmt.Println(ACK)
+	ACK := "Matched " + fmt.Sprintf("%v", result.MatchedCount) + " heroes and updated " + fmt.Sprintf("%v", result.ModifiedCount) + " heroes."
+	fmt.Println("[DEBUG] " + ACK)
 	return ACK, nil
 }

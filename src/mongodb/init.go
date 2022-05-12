@@ -11,6 +11,7 @@ import (
 
 var ctx context.Context
 var dbClient *mongo.Client
+var heroDatabase *mongo.Database
 
 func InitMongoConnection(mongoURL, dbName string) {
 	clientOptions := options.Client().ApplyURI(mongoURL)
@@ -28,7 +29,14 @@ func InitMongoConnection(mongoURL, dbName string) {
 
 	fmt.Println("[DEBUG] Connected to MongoDB!")
 
-	heroCollection = dbClient.Database(dbName).Collection("heroes")
+	heroDatabase = dbClient.Database(dbName)
+	HeroCollection = heroDatabase.Collection("heroes")
+}
+
+func DropDatabase() {
+	if heroDatabase != nil {
+		heroDatabase.Drop(ctx)
+	}
 }
 
 func CloseMongoConnection() {

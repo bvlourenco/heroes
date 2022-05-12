@@ -22,3 +22,5 @@ go.work
 
 # Directory where database items are stored
 data/
+
+heroes
