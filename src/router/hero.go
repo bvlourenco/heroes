@@ -61,6 +61,7 @@ func deleteHero(c *gin.Context) {
 	code, err := heroInDB(objectID)
 	if err != nil {
 		c.JSON(code, gin.H{"error": err.Error()})
+		return
 	}
 	ACK, err := mongodb.DeleteHero(objectID)
 	if err != nil {
@@ -104,6 +105,7 @@ func updateHero(c *gin.Context) {
 	code, err := heroInDB(hero.ID)
 	if err != nil {
 		c.JSON(code, gin.H{"error": err.Error()})
+		return
 	}
 	ACK, err := mongodb.UpdateHero(&hero)
 	if err != nil {
