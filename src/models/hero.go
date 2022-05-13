@@ -4,5 +4,5 @@ import "go.mongodb.org/mongo-driver/bson/primitive"
 
 type Hero struct {
 	ID   primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	Name string             `json:"name" bson:"name"`
+	Name string             `json:"name" bson:"name" validate:"required"`
 }

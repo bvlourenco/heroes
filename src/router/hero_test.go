@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -53,6 +54,25 @@ func getHeroDB(name string) (*models.Hero, error) {
 	return hero, nil
 }
 
+func makeRequest(t *testing.T, method string, path string, payload io.Reader) *http.Response {
+	req, err := http.NewRequest(method, path, payload)
+	if err != nil {
+		log.Fatal(err)
+	}
+	res, err := http.DefaultClient.Do(req)
+	assert.NilError(t, err)
+	return res
+}
+
+func readResponse(resBody io.ReadCloser) string {
+	body, err := ioutil.ReadAll(resBody)
+	if err != nil {
+		log.Fatal(err)
+	}
+	resBody.Close()
+	return string(body)
+}
+
 func setupTests() {
 	err := godotenv.Load("../.env")
 	if err != nil {
@@ -80,44 +100,74 @@ func TestAddHero(t *testing.T) {
 
 	assert.NilError(t, errMarshal)
 
-	res, err := http.Post(url+"/hero", "application/json", bytes.NewBuffer(bytesHero))
-	assert.NilError(t, err)
-
+	res := makeRequest(t, "POST", url+"/hero", bytes.NewBuffer(bytesHero))
 	assert.Equal(t, res.StatusCode, http.StatusOK)
 
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer res.Body.Close()
+	resContent := readResponse(res.Body)
 
 	heroDB, err := getHeroDB(heroName)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	assert.Equal(t, string(body), "Inserted a hero with ID:"+heroDB.ID.Hex())
+	assert.Equal(t, resContent, "Inserted a hero with ID:"+heroDB.ID.Hex())
+}
+
+func TestAddHeroInvalidType(t *testing.T) {
+	mongodb.DropDatabase()
+
+	type InvalidHero struct {
+		ID   string `json:"id,omitempty" bson:"_id,omitempty"`
+		Name string `json:"name"`
+	}
+
+	hero := &InvalidHero{ID: "invalid_id_type", Name: "invalid_hero_id"}
+
+	bytesHero, errMarshal := json.Marshal(hero)
+	assert.NilError(t, errMarshal)
+
+	res := makeRequest(t, "POST", url+"/hero", bytes.NewBuffer(bytesHero))
+	assert.Equal(t, res.StatusCode, http.StatusBadRequest)
+}
+
+func TestAddHeroInvalidFormat(t *testing.T) {
+	mongodb.DropDatabase()
+
+	type InvalidHero struct {
+		ID        primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+		OtherName string             `json:"othername" bson:"othername"`
+	}
+
+	hero := &InvalidHero{OtherName: "invalid_hero_format"}
+
+	bytesHero, errMarshal := json.Marshal(hero)
+	assert.NilError(t, errMarshal)
+
+	res := makeRequest(t, "POST", url+"/hero", bytes.NewBuffer(bytesHero))
+	assert.Equal(t, res.StatusCode, http.StatusBadRequest)
 }
 
 func TestGetHeroes(t *testing.T) {
 	mongodb.DropDatabase()
+	var heroes []*models.Hero
 	hero_test_1 := createHero(t, "hero_test_1")
 	hero_test_2 := createHero(t, "hero_test_2")
-	res, err := http.Get(url + "/hero")
-	assert.NilError(t, err)
+	heroes = append(heroes, hero_test_1)
+	heroes = append(heroes, hero_test_2)
+	res := makeRequest(t, "GET", url+"/hero", nil)
 	assert.Equal(t, res.StatusCode, http.StatusOK)
 
-	var heroes []*models.Hero
-	json.NewDecoder(res.Body).Decode(&heroes)
-	compareHero(t, heroes[0], hero_test_1)
-	compareHero(t, heroes[1], hero_test_2)
+	var heroesRequest []*models.Hero
+	json.NewDecoder(res.Body).Decode(&heroesRequest)
+	for i := 0; i < len(heroes); i++ {
+		compareHero(t, heroesRequest[i], heroes[i])
+	}
 }
 
 func TestGetHero(t *testing.T) {
 	mongodb.DropDatabase()
 	hero_test_1 := createHero(t, "hero_test_1")
-	res, err := http.Get(url + "/hero/" + hero_test_1.ID.Hex())
-	assert.NilError(t, err)
+	res := makeRequest(t, "GET", url+"/hero/"+hero_test_1.ID.Hex(), nil)
 	assert.Equal(t, res.StatusCode, http.StatusOK)
 
 	var hero *models.Hero
@@ -125,31 +175,59 @@ func TestGetHero(t *testing.T) {
 	compareHero(t, hero, hero_test_1)
 }
 
+func TestGetHeroInvalidID(t *testing.T) {
+	mongodb.DropDatabase()
+	res := makeRequest(t, "GET", url+"/hero/"+"invalid_ID", nil)
+	assert.Equal(t, res.StatusCode, http.StatusBadRequest)
+}
+
+func TestGetHeroNotFound(t *testing.T) {
+	mongodb.DropDatabase()
+	hero_test_1 := &models.Hero{Name: "hero_test_1"}
+	res := makeRequest(t, "GET", url+"/hero/"+hero_test_1.ID.Hex(), nil)
+	assert.Equal(t, res.StatusCode, http.StatusNotFound)
+}
+
 func TestDeleteHero(t *testing.T) {
 	mongodb.DropDatabase()
 	heroName := "hero_test_1"
 	hero_test_1 := createHero(t, heroName)
 
-	req, err := http.NewRequest("DELETE", url+"/hero/"+hero_test_1.ID.Hex(), nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	res, err := http.DefaultClient.Do(req)
-	assert.NilError(t, err)
+	res := makeRequest(t, "DELETE", url+"/hero/"+hero_test_1.ID.Hex(), nil)
 	assert.Equal(t, res.StatusCode, http.StatusOK)
 
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer res.Body.Close()
+	resContent := readResponse(res.Body)
 
-	_, err = getHeroDB(heroName)
+	_, err := getHeroDB(heroName)
+	//When going to DB, it is supposed to return error mongo.ErrNoDocuments
+	//because the hero was already deleted from the DB with DELETE request
 	if err == nil || (err != nil && err != mongo.ErrNoDocuments) {
 		log.Fatal(err)
 	}
 
-	assert.Equal(t, string(body), "Deleted 1 heroes.")
+	assert.Equal(t, resContent, "Deleted 1 heroes.")
+}
+
+func TestDeleteHeroInvalidID(t *testing.T) {
+	mongodb.DropDatabase()
+	heroName := "hero_test_1"
+	_ = createHero(t, heroName)
+
+	res := makeRequest(t, "DELETE", url+"/hero/"+"invalid_id", nil)
+	assert.Equal(t, res.StatusCode, http.StatusBadRequest)
+	_, err := getHeroDB(heroName)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func TestDeleteHeroNotFound(t *testing.T) {
+	mongodb.DropDatabase()
+	heroName := "hero_test_1"
+	hero_test_1 := &models.Hero{Name: heroName}
+
+	res := makeRequest(t, "DELETE", url+"/hero/"+hero_test_1.ID.Hex(), nil)
+	assert.Equal(t, res.StatusCode, http.StatusNotFound)
 }
 
 func TestUpdateHero(t *testing.T) {
@@ -160,19 +238,10 @@ func TestUpdateHero(t *testing.T) {
 
 	assert.NilError(t, errMarshal)
 
-	req, err := http.NewRequest("PUT", url+"/hero", bytes.NewBuffer(bytesHero))
-	if err != nil {
-		log.Fatal(err)
-	}
-	res, err := http.DefaultClient.Do(req)
-	assert.NilError(t, err)
+	res := makeRequest(t, "PUT", url+"/hero", bytes.NewBuffer(bytesHero))
 	assert.Equal(t, res.StatusCode, http.StatusOK)
 
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer res.Body.Close()
+	resContent := readResponse(res.Body)
 
 	heroDB, err := getHeroDB("hero_test_1_updated")
 	if err != nil {
@@ -180,5 +249,35 @@ func TestUpdateHero(t *testing.T) {
 	}
 
 	compareHero(t, hero_test_1, heroDB)
-	assert.Equal(t, string(body), "Matched 1 heroes and updated 1 heroes.")
+	assert.Equal(t, resContent, "Matched 1 heroes and updated 1 heroes.")
+}
+
+func TestUpdateHeroInvalidFormat(t *testing.T) {
+	mongodb.DropDatabase()
+	hero_test_1 := createHero(t, "hero_test_1")
+
+	type InvalidHero struct {
+		ID        primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+		OtherName string             `json:"othername" bson:"othername"`
+	}
+
+	hero := &InvalidHero{ID: hero_test_1.ID, OtherName: "invalid_hero_format"}
+
+	bytesHero, errMarshal := json.Marshal(hero)
+	assert.NilError(t, errMarshal)
+
+	res := makeRequest(t, "PUT", url+"/hero", bytes.NewBuffer(bytesHero))
+	assert.Equal(t, res.StatusCode, http.StatusBadRequest)
+}
+
+func TestUpdateHeroNotFound(t *testing.T) {
+	mongodb.DropDatabase()
+	hero_test_1 := &models.Hero{Name: "hero_test_1"}
+	hero_test_1.Name = "hero_test_1_updated"
+	bytesHero, errMarshal := json.Marshal(hero_test_1)
+
+	assert.NilError(t, errMarshal)
+
+	res := makeRequest(t, "PUT", url+"/hero", bytes.NewBuffer(bytesHero))
+	assert.Equal(t, res.StatusCode, http.StatusNotFound)
 }

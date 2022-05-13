@@ -5,9 +5,22 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"sinfo.org/heroes/models"
 	"sinfo.org/heroes/mongodb"
 )
+
+func heroInDB(objectID primitive.ObjectID) (int, error) {
+	_, err := mongodb.GetHero(objectID)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return http.StatusNotFound, err
+		} else {
+			return http.StatusInternalServerError, err
+		}
+	}
+	return http.StatusOK, nil
+}
 
 func getHeroes(c *gin.Context) {
 	heroes, err := mongodb.GetHeroes()
@@ -45,6 +58,10 @@ func deleteHero(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	code, err := heroInDB(objectID)
+	if err != nil {
+		c.JSON(code, gin.H{"error": err.Error()})
+	}
 	ACK, err := mongodb.DeleteHero(objectID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -62,7 +79,11 @@ func getHero(c *gin.Context) {
 	}
 	hero, err := mongodb.GetHero(objectID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if err == mongo.ErrNoDocuments {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
 	c.JSON(http.StatusOK, hero)
@@ -79,6 +100,10 @@ func updateHero(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	code, err := heroInDB(hero.ID)
+	if err != nil {
+		c.JSON(code, gin.H{"error": err.Error()})
 	}
 	ACK, err := mongodb.UpdateHero(&hero)
 	if err != nil {
