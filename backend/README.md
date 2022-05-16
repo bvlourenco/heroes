@@ -94,3 +94,12 @@ $ ./heroes
 ```
 
 Now, we can do requests to our server :)
+
+### Run unit tests
+In order to run the unit tests, you should start a mongo daemon process and the server. Then run the file with the tests by doing:
+```bash
+$ cd src
+
+#The -v flag produces detailed outputs about passed and failed tests
+$ go test -v router/hero_test.go
+```
