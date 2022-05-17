@@ -25,10 +25,22 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text("Heroes App"),
-        ),
-        body: buildHeroCards());
+      appBar: AppBar(
+        title: Text("Heroes App"),
+      ),
+      body: buildHeroCards(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.pushNamed(
+            context,
+            "a",
+          );
+        },
+        label: const Text('Create New Hero'),
+        icon: const Icon(Icons.person),
+        backgroundColor: Color(0xff214375),
+      ),
+    );
   }
 
   Widget buildHeroCards() {
@@ -37,20 +49,20 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, snapshot) {
           if (snapshot.hasData) {
             List<MyHero> her = snapshot.data!;
-            return LayoutBuilder(builder: (context, constraints) {
-              return GridView.builder(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 5,
-                    mainAxisSpacing: 5,
+            return GridView.builder(
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 200,
                     childAspectRatio: 0.75,
-                  ),
-                  itemCount: her.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    return HeroCard(
-                        id: her[index].heroId, name: her[index].name);
-                  });
-            });
+                    crossAxisSpacing: 20,
+                    mainAxisSpacing: 20),
+                itemCount: her.length,
+                itemBuilder: (BuildContext context, int index) {
+                  return HeroCard(id: her[index].heroId, name: her[index].name);
+                });
+          } else if (snapshot.hasError && snapshot.data == null) {
+            return Center(child: Text("No heroes."));
+          } else if (snapshot.hasError) {
+            return Center(child: Text("Error getting heroes."));
           } else {
             return Center(child: CircularProgressIndicator());
           }
