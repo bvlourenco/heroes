@@ -65,32 +65,3 @@ The API handles the following HTTP requests:
 |     404        |    Hero not found                              |
 |     500        |    Internal Server Error (e.g. Database error) |
 |     200        |    Otherwise                                   |
-
-### Build and run
-
-In order to run the application, you should first run mongo daemon process 
-(that manages all MongoDB server tasks, e.g. accepting client connections and responding to them):
-
-```bash
-$ cd src
-
-#creates the directory where the database will store our documents/collections
-$ mkdir -p data/db
-
-#create mongo daemon process
-$ mongod --dbpath data/db
-```
-The mongo daemon process should be running in the current terminal.
-
-Then, we can run our server by opening a new terminal and doing:
-```bash
-$ cd src
-
-#Compiles the program
-$ go build
-
-#Runs the program
-$ ./heroes
-```
-
-Now, we can do requests to our server :)

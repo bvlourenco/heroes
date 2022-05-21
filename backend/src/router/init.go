@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
@@ -22,6 +23,10 @@ func InitRouter(host, port string, debug bool) {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	router := gin.Default()
+
+	//Allowing all origins. In a deployed version, only 
+	//certain domains should be allowed
+	router.Use(cors.Default())
 	validate = validator.New()
 
 	router.GET("/ping", ping)
@@ -32,6 +37,7 @@ func InitRouter(host, port string, debug bool) {
 	router.PUT("/hero", updateHero)
 
 	addr := host + ":" + port
+
 	fmt.Println("[DEBUG] Running server on:", addr)
 	log.Fatal(router.Run(addr))
 }
