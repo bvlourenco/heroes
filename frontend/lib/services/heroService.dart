@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/http.dart';
 
 class HeroService {
+  Map<String, String> reqHeaders = {'Content-type': 'application/json'};
+
   Future<List<MyHero>> getHeroes() async {
     final res = await http.get(Uri.parse("http://localhost:8080/hero"));
     if (res.statusCode == 200) {
@@ -29,10 +31,10 @@ class HeroService {
   }
 
   Future<String?> createHero({required String name}) async {
-    var body = {'name': name};
+    var body = jsonEncode({'name': name});
 
-    final res =
-        await http.post(Uri.parse("http://localhost:8080/hero"), body: body);
+    final res = await http.post(Uri.parse("http://localhost:8080/hero"),
+        body: body, headers: reqHeaders);
     return getResponseACK(res);
   }
 
@@ -43,10 +45,10 @@ class HeroService {
   }
 
   Future<String?> updateHero({required String id, required String name}) async {
-    var body = {'id': id, 'name': name};
+    var body = jsonEncode({'id': id, 'name': name});
 
-    final res =
-        await http.put(Uri.parse("http://localhost:8080/hero"), body: body);
+    final res = await http.put(Uri.parse("http://localhost:8080/hero"),
+        body: body, headers: reqHeaders);
     return getResponseACK(res);
   }
 
